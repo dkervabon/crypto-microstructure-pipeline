@@ -84,7 +84,7 @@ services:
   - type: web
     name: crypto-microstructure-dashboard
     runtime: python
-    plan: free               # bump to `starter` to avoid idle spin-down
+    plan: starter            # always-on + more CPU (faster chart rendering)
     autoDeploy: true
     healthCheckPath: /
     buildCommand: pip install -r requirements.txt

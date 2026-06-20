@@ -1,5 +1,7 @@
 # Real-Time Crypto Microstructure Pipeline
 
+### 📊 Live dashboard → **https://crypto-microstructure-dashboard.onrender.com/**
+
 Stream live trade ticks from Binance for **BTC/USDT, ETH/USDT, SOL/USDT**, move
 them through **Kafka**, land them in **BigQuery**, compute microstructure metrics
 (**VWAP, realized volatility, trade imbalance**) with **dbt**, and visualize on a
@@ -9,6 +11,32 @@ live **Dash** dashboard.
 Binance WS ──▶ Python producer ──▶ Confluent Cloud Kafka ──▶ consumer ──▶ BigQuery ──▶ dbt ──▶ Dash
    @trade                          ticks.* (SASL_SSL)                       raw         marts   live
 ```
+
+## Key findings
+
+Computed directly from the `crypto_marts` tables (sample window: ~2h of trading,
+2026-06-20 UTC; figures update live on the dashboard as more data accrues).
+
+**Realized volatility scales inversely with market cap.** Annualized realized
+vol (rolling 15-min window of 1-minute log returns) cleanly separates the three
+assets — the smaller the coin, the more volatile:
+
+| symbol | median ann. vol | typical range (IQR) |
+|--------|----------------:|---------------------|
+| BTCUSDT | **17.7%** | 15.1 – 23.5% |
+| ETHUSDT | **24.8%** | 21.3 – 28.1% |
+| SOLUSDT | **34.7%** | 31.5 – 40.8% |
+
+**BTC and ETH are tightly coupled.** The rolling 5-minute correlation of their
+1-minute log returns has a **median of 0.79** (IQR 0.70–0.92) and is **positive
+in 98% of windows**, but it does break down — the full range spans **−0.13 to
+0.99**, i.e. brief decoupling episodes do occur.
+
+**Order flow is near-balanced but noisy.** Per-minute taker-side imbalance
+averages near zero (BTC +0.02, ETH −0.05, SOL −0.05) — no persistent directional
+pressure over the sample — yet swings hard minute-to-minute (std ≈ 0.5; 10th/90th
+percentiles around ±0.7), so individual minutes are frequently dominated by
+aggressive buyers or sellers. BTC was buy-dominant in 55% of minutes, ETH 45%.
 
 ## Status
 
@@ -104,10 +132,10 @@ receives Kafka creds).
      otherwise cause (the symptom is a `JSONDecodeError`). Locally, dev falls
      back to the file path in `GOOGLE_APPLICATION_CREDENTIALS`.
 
-> **Plans:** Render background workers need a paid instance type (Starter+), so
-> the two workers run on `starter`. The dashboard is on `free` (wakes on
-> request) — bump it to `starter` for always-on. `wsgi.py` (`gunicorn
-> wsgi:server`) is the web entry point; `Procfile` mirrors it.
+> **Plans:** all three services run on `starter` — the two workers because
+> Render background workers require a paid tier, and the dashboard for always-on
+> uptime (no idle spin-down) plus the extra CPU that speeds up chart rendering.
+> `wsgi.py` (`gunicorn wsgi:server`) is the web entry point; `Procfile` mirrors it.
 
 ## Layout
 
