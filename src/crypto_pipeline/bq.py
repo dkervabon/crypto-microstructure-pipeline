@@ -7,6 +7,8 @@ dbt (Phase 3) reads from here to build the VWAP / volatility / imbalance marts.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import logging
 import os
@@ -39,16 +41,40 @@ RAW_SCHEMA = [
 ]
 
 
+def _decode_credentials_json(raw: str) -> dict:
+    """Parse the SA key from GOOGLE_APPLICATION_CREDENTIALS_JSON.
+
+    The value is expected to be **base64-encoded** — encoding the key avoids the
+    newline/quote corruption of the private key that happens when raw multi-line
+    JSON is pasted into a hosting UI (e.g. Render), which surfaces as a
+    JSONDecodeError. For backward compatibility we still accept raw JSON
+    (detected by a leading '{').
+    """
+    raw = raw.strip()
+    if raw.startswith("{"):
+        return json.loads(raw)
+    try:
+        decoded = base64.b64decode(raw, validate=True).decode("utf-8")
+    except (binascii.Error, ValueError) as exc:
+        raise RuntimeError(
+            "GOOGLE_APPLICATION_CREDENTIALS_JSON is neither valid base64 nor raw "
+            "JSON; base64-encode the service-account key file"
+        ) from exc
+    return json.loads(decoded)
+
+
 def _credentials() -> service_account.Credentials:
     """Load SA credentials, preferring inline JSON (for hosted envs like Render).
 
-    * GOOGLE_APPLICATION_CREDENTIALS_JSON — the key's JSON contents (Render
+    * GOOGLE_APPLICATION_CREDENTIALS_JSON — base64-encoded key JSON (Render
       secret env var; no file on disk).
     * GOOGLE_APPLICATION_CREDENTIALS — path to the key file (local dev).
     """
     inline = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
     if inline:
-        return service_account.Credentials.from_service_account_info(json.loads(inline))
+        return service_account.Credentials.from_service_account_info(
+            _decode_credentials_json(inline)
+        )
     if settings.google_credentials:
         return service_account.Credentials.from_service_account_file(
             settings.google_credentials

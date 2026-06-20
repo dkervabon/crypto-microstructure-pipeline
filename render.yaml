@@ -47,7 +47,8 @@ envVarGroups:
       - key: BQ_MARTS_DATASET
         value: crypto_marts
       - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
-        sync: false   # full service-account key JSON (read via bq._credentials)
+        sync: false   # base64-encoded SA key JSON: `base64 -i key.json`
+                      # (base64 avoids private-key newline corruption in the UI)
 
 services:
   # --- Producer worker: Binance WebSocket -> Confluent Cloud ---

@@ -98,9 +98,11 @@ receives Kafka creds).
 2. In Render: **New → Blueprint**, point at the repo (`render.yaml` is detected).
 3. Fill in the three secret env vars (marked `sync: false`) in the Render UI:
    - `KAFKA_API_KEY`, `KAFKA_API_SECRET` — Confluent API key/secret
-   - `GOOGLE_APPLICATION_CREDENTIALS_JSON` — full service-account key JSON
-     (read by `bq._credentials`; locally it falls back to the file path in
-     `GOOGLE_APPLICATION_CREDENTIALS`).
+   - `GOOGLE_APPLICATION_CREDENTIALS_JSON` — the service-account key,
+     **base64-encoded**: `base64 -i your-key.json` (pipe to `| pbcopy` on macOS).
+     Base64 avoids the private-key newline corruption that a hosting UI would
+     otherwise cause (the symptom is a `JSONDecodeError`). Locally, dev falls
+     back to the file path in `GOOGLE_APPLICATION_CREDENTIALS`.
 
 > **Plans:** Render background workers need a paid instance type (Starter+), so
 > the two workers run on `starter`. The dashboard is on `free` (wakes on
