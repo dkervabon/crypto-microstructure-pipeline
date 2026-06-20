@@ -54,13 +54,16 @@ def _decode_credentials_json(raw: str) -> dict:
     if raw.startswith("{"):
         return json.loads(raw)
     try:
-        decoded = base64.b64decode(raw, validate=True).decode("utf-8")
+        # Lenient decode (no validate=True): ignores embedded newlines/whitespace
+        # from line-wrapped base64 (e.g. Linux `base64` wraps at 76 cols), which
+        # otherwise raises "Excess data after padding".
+        decoded = base64.b64decode(raw).decode("utf-8")
+        return json.loads(decoded)
     except (binascii.Error, ValueError) as exc:
         raise RuntimeError(
             "GOOGLE_APPLICATION_CREDENTIALS_JSON is neither valid base64 nor raw "
             "JSON; base64-encode the service-account key file"
         ) from exc
-    return json.loads(decoded)
 
 
 def _credentials() -> service_account.Credentials:
