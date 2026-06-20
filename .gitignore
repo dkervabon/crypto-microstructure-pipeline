@@ -1,0 +1,38 @@
+# --- Secrets / credentials (NEVER commit) ---
+.env
+*.json
+!package.json
+!package-lock.json
+keys/
+**/service-account*.json
+**/crypto-microstructure-*.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+
+# --- dbt (later phases) ---
+target/
+dbt_packages/
+logs/
+
+# --- dbt local artifacts ---
+.user.yml
+
+# --- Editor / agent / OS ---
+.claude/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+*.log
+.env.*
+!.env.example

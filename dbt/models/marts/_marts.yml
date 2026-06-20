@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: mart_vwap
+    description: "Per-minute and cumulative session VWAP per symbol."
+    columns:
+      - name: symbol
+        tests: [not_null]
+      - name: minute
+        tests: [not_null]
+      - name: minute_vwap
+        description: "Volume-weighted average price for the minute."
+        tests: [not_null]
+      - name: session_vwap
+        description: "Cumulative VWAP since 00:00 UTC, per symbol."
+
+  - name: mart_realized_volatility
+    description: "Rolling realized volatility from 1-minute log returns."
+    columns:
+      - name: symbol
+        tests: [not_null]
+      - name: minute
+        tests: [not_null]
+      - name: window_minutes
+        tests: [not_null]
+      - name: annualized_vol_pct
+        description: "Realized vol annualized (24/7) as a percentage."
+
+  - name: mart_trade_imbalance
+    description: "Taker-side order-flow imbalance per symbol per minute."
+    columns:
+      - name: symbol
+        tests: [not_null]
+      - name: minute
+        tests: [not_null]
+      - name: imbalance
+        description: "(buy_vol - sell_vol) / (buy_vol + sell_vol), in [-1, 1]."

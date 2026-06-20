@@ -1,0 +1,93 @@
+# Render Blueprint — full pipeline as three services:
+#   1. crypto-producer   (worker) Binance WS -> Confluent Cloud
+#   2. crypto-consumer   (worker) Confluent Cloud -> BigQuery
+#   3. crypto-dashboard  (web)    Dash app over the BigQuery marts
+#
+# All config/secrets come from environment variables, grouped so each value is
+# defined once and scoped to only the services that need it. Secrets are marked
+# `sync: false` — set their values in the Render dashboard, never in this file.
+#
+# NOTE: Render background workers require a paid instance type (Starter+); the
+# free tier is web-only and spins down when idle. The two workers below use
+# `starter` so they run continuously. The dashboard is left on `free` (wakes on
+# request) — bump it to `starter` if you want it always-on.
+
+envVarGroups:
+  # Shared by all three services.
+  - name: crypto-common
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: BINANCE_SYMBOLS
+        value: btcusdt,ethusdt,solusdt
+
+  # Confluent Cloud — producer + consumer only (NOT the dashboard).
+  - name: crypto-kafka
+    envVars:
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        value: pkc-921jm.us-east-2.aws.confluent.cloud:9092
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - key: KAFKA_SASL_MECHANISM
+        value: PLAIN
+      - key: KAFKA_API_KEY
+        sync: false   # Confluent API key  (SASL username)
+      - key: KAFKA_API_SECRET
+        sync: false   # Confluent API secret (SASL password)
+
+  # BigQuery — consumer + dashboard only (NOT the producer).
+  - name: crypto-gcp
+    envVars:
+      - key: GCP_PROJECT_ID
+        value: crypto-microstructure
+      - key: BQ_LOCATION
+        value: US
+      - key: BQ_RAW_DATASET
+        value: crypto_raw
+      - key: BQ_MARTS_DATASET
+        value: crypto_marts
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false   # full service-account key JSON (read via bq._credentials)
+
+services:
+  # --- Producer worker: Binance WebSocket -> Confluent Cloud ---
+  - type: worker
+    name: crypto-producer
+    runtime: python
+    plan: starter
+    numInstances: 1
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: PYTHONPATH=src python -m crypto_pipeline.producer
+    envVars:
+      - fromGroup: crypto-common
+      - fromGroup: crypto-kafka
+
+  # --- Consumer worker: Confluent Cloud -> BigQuery ---
+  - type: worker
+    name: crypto-consumer
+    runtime: python
+    plan: starter
+    numInstances: 1          # single consumer instance keeps offset handling simple
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    # Ensure topics exist on the cluster before the consumer starts (idempotent).
+    preDeployCommand: PYTHONPATH=src python -m crypto_pipeline.admin create
+    startCommand: PYTHONPATH=src python -m crypto_pipeline.consumer
+    envVars:
+      - fromGroup: crypto-common
+      - fromGroup: crypto-kafka
+      - fromGroup: crypto-gcp
+
+  # --- Dashboard web service: Dash over the BigQuery marts ---
+  - type: web
+    name: crypto-microstructure-dashboard
+    runtime: python
+    plan: free               # bump to `starter` to avoid idle spin-down
+    autoDeploy: true
+    healthCheckPath: /
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:server --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    envVars:
+      - fromGroup: crypto-common
+      - fromGroup: crypto-gcp

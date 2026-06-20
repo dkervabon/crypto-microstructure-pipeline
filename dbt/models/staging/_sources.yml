@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Raw Binance trade ticks landed from Kafka by the consumer."
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: "{{ env_var('BQ_RAW_DATASET', 'crypto_raw') }}"
+    tables:
+      - name: ticks
+        description: "One row per Binance trade (BTC/ETH/SOL-USDT)."
+        loaded_at_field: ingest_ts
+        freshness:
+          warn_after: { count: 5, period: minute }
+          error_after: { count: 30, period: minute }
+        columns:
+          - name: symbol
+            tests: [not_null]
+          - name: price
+          - name: quantity
+          - name: taker_side
+          - name: trade_ts
+            tests: [not_null]

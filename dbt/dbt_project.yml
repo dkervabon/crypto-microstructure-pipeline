@@ -1,0 +1,34 @@
+name: crypto_microstructure
+version: 0.1.0
+config-version: 2
+
+profile: crypto_microstructure
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Microstructure marts are served live to the Dash dashboard, so models are
+# materialized as views (always reflect the latest streamed ticks without a
+# scheduled rebuild). int_minute_bars is ephemeral -> inlined into each mart.
+models:
+  crypto_microstructure:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: view
+
+vars:
+  # Trailing window (minutes) for rolling realized volatility.
+  vol_window_minutes: 15
+  # Trailing window (minutes) for smoothed trade imbalance.
+  imbalance_window_minutes: 5
+  # Minutes in a (24/7) crypto trading year — used to annualize volatility.
+  minutes_per_year: 525600
