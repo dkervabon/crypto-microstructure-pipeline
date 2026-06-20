@@ -1,5 +1,7 @@
 # Real-Time Crypto Microstructure Pipeline
 
+Dashboard hosted on Render free tier — may take 30–60 seconds to wake on first load.
+
 ### 📊 Live dashboard → **https://crypto-microstructure-dashboard.onrender.com/**
 
 Stream live trade ticks from Binance for **BTC/USDT, ETH/USDT, SOL/USDT**, move
